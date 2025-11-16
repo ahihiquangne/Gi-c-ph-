@@ -3,6 +3,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, jsonify, send_from_directory
+from datetime import datetime, timezone, timedelta  # Thêm import này
 
 # --- Cấu hình ---
 CACHE_DURATION_SECONDS = 3 * 60 * 60  # 3 giờ
@@ -31,6 +32,9 @@ def get_coffee_prices():
     Parse từ text HTML. Fallback nếu fail.
     """
     url = "https://giacaphe.com/gia-ca-phe-noi-dia/"
+    
+    # Múi giờ +7 (dùng chung)
+    vn_tz = timezone(timedelta(hours=7))
     
     for attempt in range(2):  # Retry 2 lần
         try:
@@ -76,7 +80,7 @@ def get_coffee_prices():
                                "change": pepper_match.group(2).strip('()') if pepper_match and pepper_match.group(2) else "0"},
                     "exchange": {"usd_vnd": exchange_match.group(1).strip().replace(',', '') if exchange_match else "N/A"},
                     "timestamp": int(time.time()),
-                    "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    "date": datetime.now(vn_tz).strftime("%Y-%m-%d %H:%M:%S"),  # Sửa thành +7
                     "unit": "VNĐ/kg (tỷ giá: VND/USD)"
                 }
                 return data
@@ -103,7 +107,7 @@ def get_coffee_prices():
         "pepper": {"price": "145,000", "change": "+2"},
         "exchange": {"usd_vnd": "26,128"},
         "timestamp": int(time.time()),
-        "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+        "date": datetime.now(vn_tz).strftime("%Y-%m-%d %H:%M:%S"),  # Sửa thành +7
         "unit": "VNĐ/kg (tỷ giá: VND/USD)",
         "note": "Nguồn: giacaphe.com & giauet.com (Vietcombank)"
     }
