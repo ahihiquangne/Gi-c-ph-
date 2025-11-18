@@ -1,6 +1,6 @@
 import time
 import re
-import cloudscraper
+import requests
 from bs4 import BeautifulSoup
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
@@ -14,51 +14,43 @@ HEADERS = {
     'Connection': 'keep-alive',
 }
 
+SCRAPER_API_KEY = "YOUR_SCRAPERAPI_KEY"
+SCRAPER_API_URL = "http://api.scraperapi.com/"
+
 # --- Flask ---
 app = Flask(__name__)
 application = app
 
 # --- Cache ---
-cached_data = {
-    "data": None,
-    "timestamp": 0
-}
+cached_data = {"data": None, "timestamp": 0}
 
 def get_coffee_prices():
-    """
-    Scrape toàn bộ dữ liệu từ giacaphe.com.
-    Dùng cloudscraper để bypass Cloudflare.
-    """
     url = "https://giacaphe.com/gia-ca-phe-noi-dia/"
     vn_tz = timezone(timedelta(hours=7))
 
-    scraper = cloudscraper.create_scraper()  # Bypass Cloudflare
-
-    for attempt in range(2):  # Retry 2 lần
+    for attempt in range(2):
         try:
             time.sleep(2)
             print(f"Scrape attempt {attempt+1}...")
 
-            response = scraper.get(url, headers=HEADERS)
+            # Dùng ScraperAPI thay cloudscraper
+            params = {"api_key": SCRAPER_API_KEY, "url": url}
+            response = requests.get(SCRAPER_API_URL, params=params, headers=HEADERS)
             if response.status_code != 200:
                 raise Exception(f"HTTP {response.status_code}")
 
             soup = BeautifulSoup(response.text, 'lxml')
             full_text = soup.get_text()
 
-            # Regex tìm giá theo tỉnh + thay đổi
             pattern_price = re.compile(
                 r'(Đắk Lắk|Trung bình|Đắk Nông|Gia Lai|Lâm Đồng)\s*[:\-]?\s*(\d{3}(?:,\d{3})*)\s*(\([+-]?\d{1,3}(?:,\d{3})*\))?',
                 re.IGNORECASE
             )
             matches = pattern_price.findall(full_text)
-
             pepper_match = re.search(r'Hồ tiêu\s*[:\-]?\s*(\d{3}(?:,\d{3})*)\s*(\([+-]?\d{1,3}(?:,\d{3})*\))?', full_text)
             exchange_match = re.search(r'Tỷ giá USD/VND\s*[:\-]?\s*(\d{2,3}(?:,\d{3})*)', full_text)
 
-            prices = {}
-            changes = {}
-
+            prices, changes = {}, {}
             for m in matches:
                 province = m[0].strip()
                 price = m[1].replace(',', '')
@@ -69,7 +61,7 @@ def get_coffee_prices():
             if len(prices) >= 4:
                 print("✔ Scrape thành công (full)")
                 return {
-                    "source": "giacaphe.com (scrape full)",
+                    "source": "giacaphe.com (scrape full via ScraperAPI)",
                     "average": {"price": prices.get("Trung bình", "N/A"), "change": changes.get("Trung bình", "0")},
                     "prices": [
                         {"province": "Đắk Lắk", "price": prices.get("Đắk Lắk", "N/A"), "change": changes.get("Đắk Lắk", "0")},
@@ -97,8 +89,8 @@ def get_coffee_prices():
 
     # Fallback
     print("⚠ Dùng fallback do scrape fail")
-    fallback_data = {
-        "source": "giacaphe.com (fallback từ screenshot 16/11/2025)",
+    return {
+        "source": "giacaphe.com (fallback)",
         "average": {"price": "110,300", "change": "-2,600"},
         "prices": [
             {"province": "Đắk Lắk", "price": "110,500", "change": "-2,500"},
@@ -110,39 +102,30 @@ def get_coffee_prices():
         "exchange": {"usd_vnd": "26,128"},
         "timestamp": int(time.time()),
         "date": datetime.now(vn_tz).strftime("%Y-%m-%d %H:%M:%S"),
-        "unit": "VNĐ/kg (tỷ giá: VND/USD)",
-        "note": "Nguồn: giacaphe.com & giauet.com (Vietcombank)"
+        "unit": "VNĐ/kg (tỷ giá: VND/USD)"
     }
-    return fallback_data
 
-
+# --- Flask routes ---
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({"message": "Coffee Price API Full - Sử dụng /api/coffee-prices"})
-
 
 @app.route('/favicon.ico', methods=['GET'])
 def favicon():
     return '', 204
 
-
 @app.route('/api/coffee-prices', methods=['GET'])
 def api_get_prices():
     global cached_data
     current_time = time.time()
-
     if cached_data["data"] and (current_time - cached_data["timestamp"] < CACHE_DURATION_SECONDS):
         print("→ Trả từ cache")
         return jsonify(cached_data["data"])
-
     fresh_data = get_coffee_prices()
-
     cached_data["data"] = fresh_data
     cached_data["timestamp"] = current_time
-
     print("→ Trả dữ liệu mới (fresh)")
     return jsonify(fresh_data)
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
