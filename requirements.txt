@@ -3,7 +3,6 @@ blinker==1.8.2
 certifi==2025.7.14
 charset-normalizer==3.4.2
 click==8.1.8
-cloudscraper==1.2.71
 colorama==0.4.6
 flask==3.0.3
 idna==3.10
