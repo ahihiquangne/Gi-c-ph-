@@ -1,12 +1,11 @@
 import time
 import re
 import requests
-from bs4 import BeautifulSoup
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
 
 # --- SCRAPINGBEE KEY CỦA CHA ---
-SCRAPINGBEE_KEY = "RX9G6Y1COPATUBC9AF2QDE411G66VVFI5G0EPUDE7VGGFULCRH2JTFZR9NL3WG6K8PZH9R5E40C4DWOS"  # ĐÃ DÁN KEY
+SCRAPINGBEE_KEY = "RX9G6Y1COPATUBC9AF2QDE411G66VVFI5G0EPUDE7VGGFULCRH2JTFZR9NL3WG6K8PZH9R5E40C4DWOS"
 
 CACHE_DURATION_SECONDS = 35 * 60  # Cache 35 phút
 
@@ -17,7 +16,8 @@ HEADERS = {
 app = Flask(__name__)
 application = app
 
-cached_data = "data": None, "timestamp": 0
+# ĐÃ FIX LỖI Ở ĐÂY
+cached_data = {"data": None, "timestamp": 0}
 
 def scrape_giacaphe_scrapingbee():
     target_url = "https://giacaphe.com/gia-ca-phe-noi-dia/"
@@ -26,22 +26,21 @@ def scrape_giacaphe_scrapingbee():
         'api_key': SCRAPINGBEE_KEY,
         'url': target_url,
         'render_js': 'true',
-        'premium_proxy': 'true',      # Bypass Cloudflare cực mạnh
+        'premium_proxy': 'true',
         'country_code': 'vn'
     }
 
     try:
-        print("🔥 Đang scrape giacaphe.com bằng ScrapingBee (free 1.000 requests)...")
+        print("🔥 Đang scrape giacaphe.com bằng ScrapingBee...")
         response = requests.get('https://app.scrapingbee.com/api/v1/', params=params, headers=HEADERS, timeout=60)
         response.raise_for_status()
         html = response.text
 
-        # Regex bắt giá (test live 19/11/2025 - chính xác 100%)
         patterns = {
             'Trung bình': r'Trung bình\D*([\d.,]+)\D*([+-][\d.,]+)',
             'Đắk Lắk': r'Đắk Lắk\D*([\d.,]+)\D*([+-][\d.,]+)',
             'Lâm Đồng': r'Lâm Đồng\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Gia Lai': r'Gia Lai\D*([\d.,]+)\D*([+-][\d.,]+)',
+            'Gia Lili': r'Gia Lai\D*([\d.,]+)\D*([+-][\d.,]+)',
             'Đắk Nông': r'Đắk Nông\D*([\d.,]+)\D*([+-][\d.,]+)',
         }
 
@@ -52,12 +51,10 @@ def scrape_giacaphe_scrapingbee():
                 prices[prov] = {"price": m.group(1).strip(), "change": m.group(2).strip()}
 
         if "Đắk Lắk" in prices:
-            print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG QUA SCRAPINGBEE!")
-            avg_price = prices.get('Trung bình', {}).get('price', '113,500')
-            avg_change = prices.get('Trung bình', {}).get('change', '+3,200')
+            print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG!")
             return {
-                "source": "giacaphe.com (LIVE via ScrapingBee - free)",
-                "average": {"price": avg_price, "change": avg_change},
+                "source": "giacaphe.com (LIVE via ScrapingBee)",
+                "average": {"price": prices.get('Trung bình', {}).get('price', '113,500'), "change": prices.get('Trung bình', {}).get('change', '+3,200')},
                 "prices": [
                     {"province": "Đắk Lắk", "price": prices['Đắk Lắk']['price'], "change": prices['Đắk Lắk']['change']},
                     {"province": "Lâm Đồng", "price": prices['Lâm Đồng']['price'], "change": prices['Lâm Đồng']['change']},
@@ -71,8 +68,8 @@ def scrape_giacaphe_scrapingbee():
     except Exception as e:
         print("Lỗi ScrapingBee:", str(e))
 
-    # Fallback an toàn (giá vẫn chuẩn ngày 19/11)
-    print("Dùng fallback tạm thời")
+    # Fallback chuẩn ngày 19/11
+    print("Dùng fallback tạm")
     return {
         "source": "Hardcode dự phòng (19/11/2025)",
         "average": {"price": "113,800", "change": "+3,300"},
@@ -103,7 +100,7 @@ def api_get_prices():
 
 @app.route('/')
 def home():
-    return "YeuHat Coffee API - Live via ScrapingBee (free 1.000 requests) ☕"
+    return "YeuHat Coffee API - Live via ScrapingBee ☕"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
