@@ -1,55 +1,44 @@
 def get_coffee_prices():
     """
-    Hàm lấy giá cà phê với bypass Cloudflare nâng cao.
+    Lấy giá cà phê thông qua ScraperAPI để bypass Cloudflare.
     """
-    url = "https://giacaphe.com/gia-ca-phe-noi-dia/"
+    import requests
+    from bs4 import BeautifulSoup
+    import re
+    import time
 
-    # Tạo scraper giống trình duyệt thật
-    scraper = cloudscraper.create_scraper(
-        browser={
-            'browser': 'chrome',
-            'platform': 'windows',
-            'mobile': False
-        }
-    )
+    SCRAPER_API_KEY = "406d12726797254e25a327312ff5bf44"
+    target_url = "https://giacaphe.com/gia-ca-phe-noi-dia/"
 
-    headers = {
-        "User-Agent": scraper.get_user_agent(),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://google.com/",
-        "Upgrade-Insecure-Requests": "1",
-        "DNT": "1"
+    payload = {
+        "api_key": SCRAPER_API_KEY,
+        "url": target_url,
+        "render": "html",
+        "device_type": "desktop",
+        "session_number": 1
     }
 
     try:
-        response = scraper.get(url, headers=headers)
-
-        # Debug nếu còn bị chặn
-        if response.status_code == 403:
-            print("❌ Bị chặn Cloudflare (403). HTML trả về:")
-            print(response.text[:500])
-            return None
-
+        # Request qua ScraperAPI
+        response = requests.get("https://api.scraperapi.com/", params=payload)
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, 'lxml')
+        # Parse HTML thực
+        soup = BeautifulSoup(response.text, "lxml")
 
-        # Lấy toàn bộ CSS
-        all_css_text = "".join(
-            style.string for style in soup.find_all("style") if style.string
-        )
+        # Gom toàn bộ CSS trong <style>
+        all_css_text = "".join(style.get_text() for style in soup.find_all("style"))
 
-        pattern = re.compile(r"::after\s*{\s*content:\s*'([^']+)'")
+        # Regex để lấy content: 'xxxxx'
+        pattern = re.compile(r"::after\s*{\s*content:\s*'([^']+)';?\s*}")
         values = pattern.findall(all_css_text)
 
         if len(values) < 4:
-            print("❌ Không tìm đủ dữ liệu trong CSS. Giá trị tìm thấy:")
-            print(values)
+            print("⚠ Không đủ dữ liệu trong CSS. values =", values)
             return None
 
         data = {
-            "source": "giacaphe.com",
+            "source": "giacaphe.com (ScraperAPI)",
             "prices": {
                 "Đắk Lắk": values[0],
                 "Lâm Đồng": values[1],
@@ -59,7 +48,7 @@ def get_coffee_prices():
             "timestamp": int(time.time()),
             "date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             "text": (
-                "Giá cà phê nội địa \n"
+                "Giá cà phê nội địa\n"
                 f"Đắk Lắk: {values[0]}\n"
                 f"Lâm Đồng: {values[1]}\n"
                 f"Gia Lai: {values[2]}\n"
@@ -70,5 +59,5 @@ def get_coffee_prices():
         return data
 
     except Exception as e:
-        print(f"Lỗi khi lấy dữ liệu: {e}")
+        print(f"❌ Lỗi khi dùng ScraperAPI: {e}")
         return None
