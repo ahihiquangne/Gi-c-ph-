@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 # --- SCRAPINGBEE KEY CỦA CHA ---
 SCRAPINGBEE_KEY = "RX9G6Y1COPATUBC9AF2QDE411G66VVFI5G0EPUDE7VGGFULCRH2JTFZR9NL3WG6K8PZH9R5E40C4DWOS"
 
-CACHE_DURATION_SECONDS = 35 * 60  # Cache 35 phút
+CACHE_DURATION_SECONDS = 35 * 60
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -16,7 +16,6 @@ HEADERS = {
 app = Flask(__name__)
 application = app
 
-# ĐÃ FIX LỖI Ở ĐÂY
 cached_data = {"data": None, "timestamp": 0}
 
 def scrape_giacaphe_scrapingbee():
@@ -25,13 +24,13 @@ def scrape_giacaphe_scrapingbee():
     params = {
         'api_key': SCRAPINGBEE_KEY,
         'url': target_url,
-        'render_js': 'true',
-        'premium_proxy': 'true',
-        'country_code': 'vn'
+        'render_js': 'true',        # Render JS
+        'country_code': 'vn'         # IP Việt Nam
+        # BỎ premium_proxy=true → free vẫn dùng được
     }
 
     try:
-        print("🔥 Đang scrape giacaphe.com bằng ScrapingBee...")
+        print("🔥 Scrape giacaphe.com bằng ScrapingBee FREE...")
         response = requests.get('https://app.scrapingbee.com/api/v1/', params=params, headers=HEADERS, timeout=60)
         response.raise_for_status()
         html = response.text
@@ -40,7 +39,7 @@ def scrape_giacaphe_scrapingbee():
             'Trung bình': r'Trung bình\D*([\d.,]+)\D*([+-][\d.,]+)',
             'Đắk Lắk': r'Đắk Lắk\D*([\d.,]+)\D*([+-][\d.,]+)',
             'Lâm Đồng': r'Lâm Đồng\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Gia Lili': r'Gia Lai\D*([\d.,]+)\D*([+-][\d.,]+)',
+            'Gia Lai': r'Gia Lai\D*([\d.,]+)\D*([+-][\d.,]+)',
             'Đắk Nông': r'Đắk Nông\D*([\d.,]+)\D*([+-][\d.,]+)',
         }
 
@@ -51,9 +50,9 @@ def scrape_giacaphe_scrapingbee():
                 prices[prov] = {"price": m.group(1).strip(), "change": m.group(2).strip()}
 
         if "Đắk Lắk" in prices:
-            print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG!")
+            print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG VỚI SCRAPINGBEE FREE!")
             return {
-                "source": "giacaphe.com (LIVE via ScrapingBee)",
+                "source": "giacaphe.com (LIVE via ScrapingBee FREE)",
                 "average": {"price": prices.get('Trung bình', {}).get('price', '113,500'), "change": prices.get('Trung bình', {}).get('change', '+3,200')},
                 "prices": [
                     {"province": "Đắk Lắk", "price": prices['Đắk Lắk']['price'], "change": prices['Đắk Lắk']['change']},
@@ -68,7 +67,6 @@ def scrape_giacaphe_scrapingbee():
     except Exception as e:
         print("Lỗi ScrapingBee:", str(e))
 
-    # Fallback chuẩn ngày 19/11
     print("Dùng fallback tạm")
     return {
         "source": "Hardcode dự phòng (19/11/2025)",
@@ -100,7 +98,7 @@ def api_get_prices():
 
 @app.route('/')
 def home():
-    return "YeuHat Coffee API - Live via ScrapingBee ☕"
+    return "YeuHat Coffee API - Live via ScrapingBee FREE ☕"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
