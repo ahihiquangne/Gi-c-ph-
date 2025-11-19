@@ -33,33 +33,40 @@ def scrape_giacaphe_scrapingbee():
         response.raise_for_status()
         html = response.text
 
+        # Regex mới linh hoạt hơn - bắt giá theo cấu trúc bảng <td> giacaphe.com 19/11/2025
         patterns = {
-            'Trung bình': r'Trung bình\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Đắk Lắk': r'Đắk Lắk\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Lâm Đồng': r'Lâm Đồng\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Gia Lai': r'Gia Lai\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Đắk Nông': r'Đắk Nông\D*([\d.,]+)\D*([+-][\d.,]+)',
+            'Trung bình': r'<td[^>]*>Trung bình[^<]*</td>\s*<td[^>]*>([\d,]{5,})\s*\(([-+]?\d{1,4})\)</td>',
+            'Đắk Lắk': r'<td[^>]*>Đắk Lắk[^<]*</td>\s*<td[^>]*>([\d,]{5,})\s*\(([-+]?\d{1,4})\)</td>',
+            'Lâm Đồng': r'<td[^>]*>Lâm Đồng[^<]*</td>\s*<td[^>]*>([\d,]{5,})\s*\(([-+]?\d{1,4})\)</td>',
+            'Gia Lai': r'<td[^>]*>Gia Lai[^<]*</td>\s*<td[^>]*>([\d,]{5,})\s*\(([-+]?\d{1,4})\)</td>',
+            'Đắk Nông': r'<td[^>]*>Đắk Nông[^<]*</td>\s*<td[^>]*>([\d,]{5,})\s*\(([-+]?\d{1,4})\)</td>',
         }
 
         prices = {}
         for prov, pat in patterns.items():
-            m = re.search(pat, html, re.S)
+            m = re.search(pat, html, re.S | re.I)
             if m:
-                prices[prov] = {"price": m.group(1).strip(), "change": m.group(2).strip() if len(m.groups()) > 1 else '0'}
+                price = m.group(1).strip().replace(',', '')  # Loại bỏ dấu phẩy, ví dụ "113,500" → 113500
+                change = m.group(2).strip() if m.group(2) else '0'
+                prices[prov] = {"price": price, "change": change}
             else:
-                prices[prov] = {"price": "N/A", "change": "0"}  # Fallback cho tỉnh thiếu
+                prices[prov] = {"price": "N/A", "change": "0"}
 
-        print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG VỚI SCRAPINGBEE FREE!")  # Luôn in nếu scrape OK
-        avg_price = prices.get('Trung bình', {}).get('price', '113,500')
-        avg_change = prices.get('Trung bình', {}).get('change', '+3,200')
+        # Chỉ fallback nếu thiếu quá nhiều tỉnh (ví dụ <3 tỉnh)
+        if len([p for p in prices if prices[p]['price'] != 'N/A']) < 3:
+            raise Exception("Scrape thiếu dữ liệu")
+
+        print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG - Đủ tỉnh!")
+        avg_price = prices.get('Trung bình', {}).get('price', '113500')
+        avg_change = prices.get('Trung bình', {}).get('change', '+3200')
         return {
             "source": "giacaphe.com (LIVE via ScrapingBee FREE)",
-            "average": {"price": avg_price, "change": avg_change},
+            "average": {"price": f"{int(avg_price):,}", "change": f"+{int(avg_change)}" if avg_change != '0' else avg_change},
             "prices": [
-                {"province": "Đắk Lắk", "price": prices.get('Đắk Lắk', {}).get('price', 'N/A'), "change": prices.get('Đắk Lắk', {}).get('change', '0')},
-                {"province": "Lâm Đồng", "price": prices.get('Lâm Đồng', {}).get('price', 'N/A'), "change": prices.get('Lâm Đồng', {}).get('change', '0')},
-                {"province": "Gia Lai", "price": prices.get('Gia Lai', {}).get('price', 'N/A'), "change": prices.get('Gia Lai', {}).get('change', '0')},
-                {"province": "Đắk Nông", "price": prices.get('Đắk Nông', {}).get('price', 'N/A'), "change": prices.get('Đắk Nông', {}).get('change', '0')},
+                {"province": "Đắk Lắk", "price": f"{int(prices['Đắk Lắk']['price']):,}" if prices['Đắk Lắk']['price'] != 'N/A' else "N/A", "change": prices['Đắk Lắk']['change']},
+                {"province": "Lâm Đồng", "price": f"{int(prices['Lâm Đồng']['price']):,}" if prices['Lâm Đồng']['price'] != 'N/A' else "N/A", "change": prices['Lâm Đồng']['change']},
+                {"province": "Gia Lai", "price": f"{int(prices['Gia Lai']['price']):,}" if prices['Gia Lai']['price'] != 'N/A' else "N/A", "change": prices['Gia Lai']['change']},
+                {"province": "Đắk Nông", "price": f"{int(prices['Đắk Nông']['price']):,}" if prices['Đắk Nông']['price'] != 'N/A' else "N/A", "change": prices['Đắk Nông']['change']},
             ],
             "timestamp": int(time.time()),
             "date": datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S"),
@@ -67,9 +74,8 @@ def scrape_giacaphe_scrapingbee():
         }
     except Exception as e:
         print("Lỗi ScrapingBee:", str(e))
-        raise  # Để fallback xử lý
 
-    # Fallback chỉ khi scrape fail hoàn toàn
+    # Fallback an toàn
     print("Dùng fallback tạm")
     return {
         "source": "Hardcode dự phòng (19/11/2025)",
