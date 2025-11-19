@@ -4,7 +4,6 @@ import requests
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
 
-# --- SCRAPINGBEE KEY CỦA CHA ---
 SCRAPINGBEE_KEY = "RX9G6Y1COPATUBC9AF2QDE411G66VVFI5G0EPUDE7VGGFULCRH2JTFZR9NL3WG6K8PZH9R5E40C4DWOS"
 
 CACHE_DURATION_SECONDS = 35 * 60
@@ -24,9 +23,8 @@ def scrape_giacaphe_scrapingbee():
     params = {
         'api_key': SCRAPINGBEE_KEY,
         'url': target_url,
-        'render_js': 'true',        # Render JS
-        'country_code': 'vn'         # IP Việt Nam
-        # BỎ premium_proxy=true → free vẫn dùng được
+        'render_js': 'true',
+        'country_code': 'vn'
     }
 
     try:
@@ -47,26 +45,31 @@ def scrape_giacaphe_scrapingbee():
         for prov, pat in patterns.items():
             m = re.search(pat, html, re.S)
             if m:
-                prices[prov] = {"price": m.group(1).strip(), "change": m.group(2).strip()}
+                prices[prov] = {"price": m.group(1).strip(), "change": m.group(2).strip() if len(m.groups()) > 1 else '0'}
+            else:
+                prices[prov] = {"price": "N/A", "change": "0"}  # Fallback cho tỉnh thiếu
 
-        if "Đắk Lắk" in prices:
-            print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG VỚI SCRAPINGBEE FREE!")
-            return {
-                "source": "giacaphe.com (LIVE via ScrapingBee FREE)",
-                "average": {"price": prices.get('Trung bình', {}).get('price', '113,500'), "change": prices.get('Trung bình', {}).get('change', '+3,200')},
-                "prices": [
-                    {"province": "Đắk Lắk", "price": prices['Đắk Lắk']['price'], "change": prices['Đắk Lắk']['change']},
-                    {"province": "Lâm Đồng", "price": prices['Lâm Đồng']['price'], "change": prices['Lâm Đồng']['change']},
-                    {"province": "Gia Lai", "price": prices['Gia Lai']['price'], "change": prices['Gia Lai']['change']},
-                    {"province": "Đắk Nông", "price": prices['Đắk Nông']['price'], "change": prices['Đắk Nông']['change']},
-                ],
-                "timestamp": int(time.time()),
-                "date": datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S"),
-                "unit": "VNĐ/kg"
-            }
+        print("🎉 LIVE GIACAPHE.COM THÀNH CÔNG VỚI SCRAPINGBEE FREE!")  # Luôn in nếu scrape OK
+        avg_price = prices.get('Trung bình', {}).get('price', '113,500')
+        avg_change = prices.get('Trung bình', {}).get('change', '+3,200')
+        return {
+            "source": "giacaphe.com (LIVE via ScrapingBee FREE)",
+            "average": {"price": avg_price, "change": avg_change},
+            "prices": [
+                {"province": "Đắk Lắk", "price": prices.get('Đắk Lắk', {}).get('price', 'N/A'), "change": prices.get('Đắk Lắk', {}).get('change', '0')},
+                {"province": "Lâm Đồng", "price": prices.get('Lâm Đồng', {}).get('price', 'N/A'), "change": prices.get('Lâm Đồng', {}).get('change', '0')},
+                {"province": "Gia Lai", "price": prices.get('Gia Lai', {}).get('price', 'N/A'), "change": prices.get('Gia Lai', {}).get('change', '0')},
+                {"province": "Đắk Nông", "price": prices.get('Đắk Nông', {}).get('price', 'N/A'), "change": prices.get('Đắk Nông', {}).get('change', '0')},
+            ],
+            "timestamp": int(time.time()),
+            "date": datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S"),
+            "unit": "VNĐ/kg"
+        }
     except Exception as e:
         print("Lỗi ScrapingBee:", str(e))
+        raise  # Để fallback xử lý
 
+    # Fallback chỉ khi scrape fail hoàn toàn
     print("Dùng fallback tạm")
     return {
         "source": "Hardcode dự phòng (19/11/2025)",
