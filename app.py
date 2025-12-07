@@ -19,7 +19,9 @@ def scrape_chocaphe():
         print("Scrape chocaphe.vn – giá cà phê trực tuyến...")
         html = requests.get(url, headers=HEADERS, timeout=20).text
 
-        # Regex mới – bắt linh hoạt dấu phẩy, khoảng trắng, % thay đổi
+        print("HTML scraped (for debug):", html)  # In HTML để debug lý do fail
+
+        # Regex mới – bắt chuẩn định dạng chocaphe.vn từ tool
         patterns = {
             'Trung bình': r'Giá trung bình\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
             'Đắk Lắk': r'Đắk Lắk\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
@@ -37,6 +39,10 @@ def scrape_chocaphe():
                 price = m.group(1).strip().replace(',', '')  # "103,900" → 103900
                 change = m.group(2).strip() if len(m.groups()) > 1 else '0'
                 prices[key] = {"price": price, "change": change}
+            else:
+                prices[key] = {"price": "N/A", "change": "0"}  # Log N/A để debug tỉnh nào miss
+
+        print("Dữ liệu scraped (for debug):", prices)  # In prices để debug regex
 
         # Kiểm tra đủ tỉnh → live
         if "Trung bình" in prices and len(prices) >= 5:
@@ -56,26 +62,13 @@ def scrape_chocaphe():
                 "date": datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S"),
                 "unit": "VNĐ/kg"
             }
-    except Exception as e:
-        print("Lỗi scrape:", e)
+        else:
+            print("Scrape thiếu dữ liệu - không đủ tỉnh, log prices để debug")
+            raise Exception("Scrape thiếu dữ liệu - xem HTML/log để fix regex")
 
-    # Fallback chuẩn (cập nhật theo dữ liệu realtime)
-    print("Dùng fallback tạm")
-    return {
-        "source": "Hardcode dự phòng (07/12/2025)",
-        "average": {"price": "103,900", "change": "+300"},
-        "prices": [
-            {"province": "Đắk Lắk", "price": "104,000", "change": "+400"},
-            {"province": "Lâm Đồng", "price": "103,300", "change": "+500"},
-            {"province": "Gia Lai", "price": "103,600", "change": "+400"},
-            {"province": "Đắk Nông", "price": "104,000", "change": "+200"}
-        ],
-        "pepper": {"price": "148,500", "change": "-1,500"},
-        "exchange": {"usd_vnd": "26,138"},
-        "timestamp": int(time.time()),
-        "date": datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S"),
-        "unit": "VNĐ/kg"
-    }
+    except Exception as e:
+        print("Lỗi scrape:", str(e))
+        raise  # Không fallback – để crash và log lỗi, xem lý do thật sự
 
 @app.route('/api/coffee-prices')
 def api_get_prices():
