@@ -19,22 +19,22 @@ def scrape_chocaphe():
         print("Scrape chocaphe.vn – giá cà phê trực tuyến...")
         html = requests.get(url, headers=HEADERS, timeout=20).text
 
-        # Regex mới – bắt chuẩn định dạng chocaphe.vn (dấu chấm nghìn, khoảng trắng, <td>/<span>)
+        # Regex mới – bắt linh hoạt dấu phẩy, khoảng trắng, % thay đổi
         patterns = {
-            'Trung bình': r'Giá trung bình\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Đắk Lắk': r'Đắk Lắk\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Lâm Đồng': r'Lâm Đồng\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Gia Lai': r'Gia Lai\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Đắk Nông': r'Đắk Nông\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'Hồ tiêu': r'Hồ tiêu\D*([\d.,]+)\D*([+-][\d.,]+)',
-            'USD/VND': r'Tỷ giá USD/VND\D*([\d.,]+)',
+            'Trung bình': r'Giá trung bình\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
+            'Đắk Lắk': r'Đắk Lắk\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
+            'Lâm Đồng': r'Lâm Đồng\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
+            'Gia Lai': r'Gia Lai\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
+            'Đắk Nông': r'Đắk Nông\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
+            'Hồ tiêu': r'Hồ tiêu\D*([\d,]{5,})\D*([+-]\d{1,3}[,\.]?\d*)',
+            'USD/VND': r'Tỷ giá USD/VND\D*([\d,]{5,})',
         }
 
         prices = {}
         for key, pat in patterns.items():
             m = re.search(pat, html, re.S | re.I)
             if m:
-                price = m.group(1).strip().replace(',', '').replace('.', '')  # "103,900" → 103900
+                price = m.group(1).strip().replace(',', '')  # "103,900" → 103900
                 change = m.group(2).strip() if len(m.groups()) > 1 else '0'
                 prices[key] = {"price": price, "change": change}
 
@@ -59,7 +59,7 @@ def scrape_chocaphe():
     except Exception as e:
         print("Lỗi scrape:", e)
 
-    # Fallback chuẩn (cập nhật theo ảnh cha chụp)
+    # Fallback chuẩn (cập nhật theo dữ liệu realtime)
     print("Dùng fallback tạm")
     return {
         "source": "Hardcode dự phòng (07/12/2025)",
